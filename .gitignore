@@ -1,1 +1,5 @@
 *.FCStd1
+*.FCStd.*
+**/.DS_Store
+Mechanical/stls/
+Mechanical/dxf/

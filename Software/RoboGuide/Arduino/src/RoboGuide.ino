@@ -2,7 +2,6 @@
 #include <rotary.h>
 
 bool newInfoReceived=false;
-bool btConnected=false;
 
 #define forwards 1
 #define backwards 2
@@ -17,6 +16,7 @@ int maxdegrees;
 bool next = false;
 int motor_left [2] = {11, 10}; //forwards, backwards
 int motor_right [2] = {9, 6}; //forwards, backwards
+int btPinState=14;
 
 struct Movement {
    int  dir;
@@ -26,7 +26,6 @@ struct Movement {
 };
 //Path init
 Movement path [6]={{forwards,  0.3,"", 0}, {0, 0, "Hi! How are you?", 2}, {0, 0, "I am Tabbot, your guide for today's tour", 0}, {right, 0.1, "", 0}, {forwards, 0.3, "", 0}, {left, 0.5, "", 0}};
-String readString();
 void move_path();
 void move_robot(int dir, float distance);
 void moveMotor (int * motor, int speed);
@@ -48,27 +47,19 @@ void setup() {
     pinMode(motor_left[motor], OUTPUT);
   }
 
+  pinMode(btPinState,INPUT);
 }
 
+
 void loop() {
-
-  String incoming;
-  if(Serial.available()) incoming=readString();
-  if (newInfoReceived==true){
-      if(incoming=="Connect") {
-          btConnected=true;
-          Serial.flush();
-          move_path(/*path*/);
-          Serial.flush();
-          Serial.println("Disconnect");
-          Serial.flush();
-
-      }
-      newInfoReceived=false;
+  double blinkSpeed = pulseIn(btPinState, HIGH,1000000);    //If no pulse in 1 seconds return 0
+  if(blinkSpeed==0){    //Connected
+      Serial.flush();
+      move_path(/*path*/);
+      Serial.print("\n");
+      Serial.println("Disconnect");
+      Serial.flush();
   }
-
-
-
 }
 
 ISR(PCINT2_vect) {
@@ -85,18 +76,6 @@ ISR(PCINT2_vect) {
 }
 
 
-String readString(){
-	String inString ="";
-	char inChar;
-	while(Serial.available()>0){
-		inChar =(char) Serial.read();
-		inString+=inChar;
-		delay(1);
-	}
-	newInfoReceived=true;
-	return inString;
-}
-
 void move_path (/*struct Movement * path*/){
   //Serial.println("sizeof(path)   "+String( sizeof(path)/sizeof(path[0])));
   for (int i = 0; i < sizeof(path)/sizeof(path[0]); i ++){
@@ -104,7 +83,7 @@ void move_path (/*struct Movement * path*/){
     //Serial.println("Direccion: "+String(path[i].dir));
     if (path[i].msg != ""){
       //Serial.println("Message: "+ path[i].msg);
-      Serial.flush();
+      Serial.print("\n");
       Serial.println(path[i].msg);
       Serial.flush();
 

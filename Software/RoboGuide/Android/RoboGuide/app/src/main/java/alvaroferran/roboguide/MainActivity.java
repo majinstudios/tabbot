@@ -20,6 +20,7 @@ import android.bluetooth.BluetoothSocket;
 import android.speech.tts.TextToSpeech;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -34,13 +35,14 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "bluetooth"; //solo para log
     final int RECEIVE_MESSAGE = 1;
     private ConnectedThread myConnectedThread;
+    private boolean bluetoothConnected=false;
 
+    ImageView image;
     TextView text;
     Button bluetoothButton;
-    Handler btInputHandler;
+    static Handler btInputHandler;
     TextToSpeech talker;
     private String inMessage;
-    private boolean msgArrived=false;
 
 
 
@@ -54,6 +56,9 @@ public class MainActivity extends AppCompatActivity {
 
         bluetoothButton= (Button) findViewById(R.id.bluetoothButton);
         text = (TextView) findViewById(R.id.textView);
+        image = (ImageView) findViewById(R.id.imageView);
+
+        image.setImageResource(R.drawable.eyes);
 
         btInputHandler = new Handler() {
             public void handleMessage(android.os.Message msg) {
@@ -67,7 +72,6 @@ public class MainActivity extends AppCompatActivity {
                             String sbprint = sb.substring(0, endOfLineIndex);               // extract string
                             sb.delete(0, sb.length());                                      // and clear
                             inMessage=sbprint;
-                            msgArrived=true;
                             mainFunction();
                         }
                         break;
@@ -82,17 +86,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
+
+
     }
 
 
     /********MAIN FUNCTION**********************************************************************************/
     private void mainFunction(){
-
-        if(msgArrived) {
-            text.setText(inMessage);
-            talker.speak(inMessage, TextToSpeech.QUEUE_FLUSH, null);
-            msgArrived = false;
+        //Toast.makeText(getBaseContext(),inMessage, Toast.LENGTH_SHORT).show();
+        if(inMessage.contains("Disconnect") ){
+            disconnectBT();
+            bluetoothButton.setVisibility(View.VISIBLE);
+            inMessage="This is the end of the tour. Thank you!";
         }
+        text.setText(inMessage);
+        talker.speak(inMessage, TextToSpeech.QUEUE_FLUSH, null);
     }
 
 
@@ -109,15 +118,14 @@ public class MainActivity extends AppCompatActivity {
         bluetoothButton.setOnClickListener(new View.OnClickListener()
         {
             public void onClick(View v) {
-                bluetoothButton.setVisibility(View.GONE);
+                bluetoothButton.setVisibility(View.INVISIBLE);
                 connectBT();
-//                Handler myHandler = new Handler();
-//                myHandler.postDelayed(myRunnable, 2000);//after 1s
-                sendBT("Connect");
+                text.setText("");
             }
         });
-        mainFunction();
     }
+
+
 
     /********ON PAUSE***************************************************************************************/
     @Override
@@ -153,8 +161,12 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothSocket createBluetoothSocket(BluetoothDevice device) throws IOException {
         if(Build.VERSION.SDK_INT >= 10){
             try {
+                BluetoothSocket mBSocket;
                 final Method m = device.getClass().getMethod("createInsecureRfcommSocketToServiceRecord", new Class[] { UUID.class });
-                return (BluetoothSocket) m.invoke( MY_UUID,device);
+//                mBSocket=device.createInsecureRfcommSocketToServiceRecord(MY_UUID);
+//                mBSocket.connect();
+//                return mBSocket;
+                return (BluetoothSocket) m.invoke(MY_UUID,device);
             } catch (Exception e) {
                 Log.e(TAG, "Could not create Insecure RFComm Connection", e);
                 //Toast.makeText(getBaseContext(),"Could not create socket connection", Toast.LENGTH_LONG).show();
@@ -186,34 +198,34 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        //try {
-            //outStream = btSocket.getOutputStream(); //Create output stream
-        //} catch (IOException e) {
-            //errorExit("Fatal Error", "In onResume() and output stream creation failed:" + e.getMessage() + ".");
-        //}
+        bluetoothConnected=true;
 
         myConnectedThread = new ConnectedThread(btSocket);
         myConnectedThread.start();
+
+
     }
 
 
     /********DISCONNECT BT**********************************************************************************/
     public void disconnectBT(){
-        if (myConnectedThread.outStream != null) {
-            try {
-                myConnectedThread.outStream.flush();  //If output stream is not empty, send data
-            } catch (IOException e) {
-                errorExit("Fatal Error", "In onPause() and failed to flush output stream: " + e.getMessage() + ".");
+        if (bluetoothConnected) {
+            if (myConnectedThread.outStream != null) {
+                try {
+                    myConnectedThread.outStream.flush();  //If output stream is not empty, send data
+                } catch (IOException e) {
+                    errorExit("Fatal Error", "In onPause() and failed to flush output stream: " + e.getMessage() + ".");
+                }
             }
-        }
 
-        try     {
-            btSocket.close();   //Close socket
-        } catch (IOException e2) {
-            errorExit("Fatal Error", "In onPause() and failed to close socket." + e2.getMessage() + ".");
+            try {
+                btSocket.close();   //Close socket
+            } catch (IOException e2) {
+                errorExit("Fatal Error", "In onPause() and failed to close socket." + e2.getMessage() + ".");
+            }
+            bluetoothConnected=false;
         }
     }
-
 
     /********SEND DATA**************************************************************************************/
     public void sendBT(String message) {

@@ -38,6 +38,13 @@ struct Movement {
    String msg;
    double s;
 };
+
+struct Movement_encoder {
+   int  enc_left;
+   int enc_right;
+   String msg;
+   double s;
+};
 //Path init
 // Movement path [6]={
 //   {forwards,  0.3,"", 0},
@@ -61,9 +68,14 @@ struct Movement {
 //   {forwards, 1.3, "", 0}
 // };
 
-Movement path [2]={
+Movement path []={
   {forwards,  1,"", 0},
   {stop, 1, "", 0}
+};
+Movement_encoder path_encoder []={
+  {40,40,"",0},
+  {0,0,"Hola hola",3},
+  {-20,-20,"",0},
 };
 void move_path();
 void move_robot(int dir, double distance);
@@ -105,22 +117,15 @@ void loop() {
   double blinkSpeed = pulseIn(btPinState, HIGH,1000000);    //If no pulse in 1 seconds return 0
   String incoming="";
   if(blinkSpeed==0){    //Connected
-      Serial.flush();
-      Serial.println("Connected");
-
-      if(Serial.available()) incoming=readString();
-      if (incoming == "Guide"){
-        move_path(/*path*/);
-        Serial.print("\n");
-        Serial.println("Disconnect");
-        Serial.flush();
-      }
-      else if (incoming == "Control"){
-        move_control();
-      }
-
-
-  }
+    Serial.flush();
+    // move_path(path);
+    // move_path(/*path_encoder*/);
+    move_control();
+    Serial.print("\n");
+    Serial.println("Disconnect");
+    Serial.flush();
+    while (1){}
+    }
 }
 
 ISR(PCINT2_vect) {
@@ -141,6 +146,7 @@ void move_control(){
   int finalEncoder [2]={0,0}; //left, right
   int movement[100];
   int count= 0;
+  int last_dir=stop; //last direction
   while (1){
     if(Serial.available()) {
       incoming=readString();
@@ -149,38 +155,45 @@ void move_control(){
       }
       switch (atoi(incoming.c_str())){
         case stop:
-        move_robot(stop, 1);
+        move_robot(stop, 0);
         finalEncoder[0] = degrees_left;
         finalEncoder[1] = degrees_right;
         break;
 
         case forwards:
+        if (last_dir == backwards){
+          delay(500);
+        }
         initEncoder[0] = degrees_left;
         initEncoder[1] = degrees_right;
-        move_robot(forwards, 1);
+        move_robot(forwards, 0);
         break;
 
         case backwards:
+        if (last_dir == forwards){
+          delay(500);
+        }
         initEncoder[0] = degrees_left;
         initEncoder[1] = degrees_right;
-        move_robot(backwards, 1);
+        move_robot(backwards, 0);
         break;
 
         case left:
         initEncoder[0] = degrees_left;
         initEncoder[1] = degrees_right;
-        move_robot(left, 1);
+        move_robot(left, 0);
         break;
 
         case right:
         initEncoder[0] = degrees_left;
         initEncoder[1] = degrees_right;
-        move_robot(right, 1);
+        move_robot(right, 0);
         break;
       }
       movement[count]= finalEncoder[0] - initEncoder[0]; //left
       movement[count +1]= finalEncoder[1] - initEncoder[1]; //right
       count+=2;
+      last_dir = atoi(incoming.c_str()); 
     }
   }
   //Store encoder values
@@ -214,15 +227,11 @@ void search_obstacles(){
       US[3]=ultrasounds_left.read();
     }
   }
-
 }
-void move_path (/*struct Movement * path*/){
-  // Serial.println("sizeof(path)   "+String( sizeof(path)/sizeof(path[0])));
+
+void move_path (struct Movement * path){
   for (int i = 0; i < sizeof(path)/sizeof(path[0]); i ++){
-    // Serial.println("Movimiento #: "+String(i));
-    // Serial.println("Direccion: "+String(path[i].dir));
     if (path[i].msg != ""){
-      //Serial.println("Message: "+ path[i].msg);
       Serial.print("\n");
       Serial.println(path[i].msg);
       Serial.flush();
@@ -249,7 +258,53 @@ void move_path (/*struct Movement * path*/){
 }
 
 
-void move_robot(int dir, double distance){
+void move_path (/*struct Movement_encoder path []*/){
+  Serial.println("Moving path! Size: "+String(sizeof(path_encoder)/sizeof(path_encoder[0])));
+  for (int i = 0; i < sizeof(path_encoder)/sizeof(path_encoder[0]); i ++){
+    Serial.println("i: "+String(i));
+    if (path_encoder[i].msg != ""){
+      Serial.print("\n");
+      Serial.println(path_encoder[i].msg);
+      Serial.flush();
+
+      delay(path_encoder[i].s*1000);
+    }
+    else{
+      int d= 10; //distance to check for obstacles
+      if(path_encoder[i].enc_left == 0 && path_encoder[i].enc_right == 0){ //if both encoders values are 0, stop the robot.
+        move_robot(0,0, stop);
+      }
+      else{
+          for (double j = 0; j <= abs(path_encoder[i].enc_left); j+=d){
+            Serial.print("J: ");
+            Serial.println(j);
+            //search for obstacles
+            search_obstacles();
+            //move robot d m
+            if (path_encoder[i].enc_left == path_encoder[i].enc_right && path_encoder[i].enc_left > 0){
+              move_robot(d,d, forwards);
+            }
+            else if (path_encoder[i].enc_left == path_encoder[i].enc_right && path_encoder[i].enc_left < 0){
+              move_robot(-d,-d, backwards);
+            }
+            else if (path_encoder[i].enc_left != path_encoder[i].enc_right && path_encoder[i].enc_left < 0){
+              move_robot(-d,d, right);
+            }
+            else if (path_encoder[i].enc_left != path_encoder[i].enc_right && path_encoder[i].enc_left > 0){
+              move_robot(d,-d, left);
+            }
+          }
+      }
+      move_robot(0,0, stop);
+      if (i<(sizeof(path_encoder)/sizeof(path_encoder[0])) &&( (path_encoder[i].enc_left>0 && path_encoder[i].enc_right>0 && path_encoder[i+1].enc_left<0 && path_encoder[i+1].enc_right<0) || (path_encoder[i].enc_left<0 && path_encoder[i].enc_right<0 && path_encoder[i+1].enc_left>0 && path_encoder[i+1].enc_right>0))){
+         delay(500);
+      }
+    }
+  }
+}
+
+
+void move_robot(int dir, double distance=1){
   int enc = 0;
   int t=20;
   String msg="";
@@ -304,6 +359,63 @@ void move_robot(int dir, double distance){
     break;
   }
 
+}
+
+
+void move_robot(int enc_left, int enc_right, int dir){
+  int enc = 0;
+  int t=20;
+  String msg="";
+  switch (dir){
+    case forwards:
+      enc = degrees_left;
+      moveMotor(motor_right, 255);
+      moveMotor(motor_left, 255);
+      while (abs(enc - degrees_left) < enc_left){ //Move until the total ticks number is equal to the one given
+        // msg = "FORWARDS:"+String(abs(enc - degrees_left))+"   "+String(distance * 100);
+        //Serial.println(msg);
+        delay(t);
+      }
+    break;
+    case backwards:
+      enc = degrees_left;
+      moveMotor(motor_right, -255);
+      moveMotor(motor_left, -255);
+      while (abs(enc - degrees_left) < enc_left){ //Move until the total ticks number is equal to the one given
+      // msg = "BACKWARDS:"+String(abs(enc - degrees_left))+"   "+String(distance * 100);
+        //Serial.println(msg);
+        delay(t);
+      }
+    break;
+    case right:
+      enc = degrees_left;
+      moveMotor(motor_right, -255);
+      moveMotor(motor_left, 255);
+      while (abs(enc - degrees_left) < enc_left){ //Move until the total ticks number is equal to the one given
+        // msg = "RIGHT: "+String(abs(enc - degrees_left))+"   "+String(distance * 100);
+        //Serial.println(msg);
+        delay(t);
+      }
+    break;
+    case left:
+      enc = degrees_right;
+      moveMotor(motor_right, 255);
+      moveMotor(motor_left, -255);
+      while (abs(enc - degrees_right) < enc_right){ ///Move until the total ticks number is equal to the one given
+        // msg = "LEFT: "+String(abs(enc - degrees_left))+"   "+String(distance * 100);
+        //Serial.println(msg);
+        delay(t);
+      }
+    break;
+    case stop:
+      moveMotor(motor_right, 0);
+      moveMotor(motor_left, 0);
+    break;
+    default:
+      moveMotor(motor_right, 0);
+      moveMotor(motor_left, 0);
+    break;
+  }
 }
 
 void moveMotor (int * motor, int speed){

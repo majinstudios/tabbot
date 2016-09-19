@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter btAdapter = null;
     private BluetoothSocket btSocket = null;
     private StringBuilder sb = new StringBuilder();
-    private static String address = "00:12:02:10:00:78"; // MAC-address of Bluetooth module
+    private static String address = "00:12:02:10:79:73"; // MAC-address of Bluetooth module
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final String TAG = "bluetooth"; //solo para log
     final int RECEIVE_MESSAGE = 1;
@@ -81,7 +81,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onInit(int status) {
                 if(status != TextToSpeech.ERROR) {
-                    talker.setLanguage(Locale.US);
+                    Locale loc = new Locale ("spa", "ESP");
+                    talker.setLanguage(loc);
                 }
             }
         });
@@ -98,7 +99,23 @@ public class MainActivity extends AppCompatActivity {
         if(inMessage.contains("Disconnect") ){
             disconnectBT();
             bluetoothButton.setVisibility(View.VISIBLE);
-            inMessage="This is the end of the tour. Thank you!";
+            inMessage="";
+           // inMessage="This is the end of the tour. Thank you!";
+        }
+        else if (inMessage.contains("1")){
+            //inMessage="Hi! I am Tabbot";
+            inMessage="¡Hola! Soy Tabbot";
+
+        }
+        else if (inMessage.contains("2")){
+            //inMessage="I am a robotic guide";
+            inMessage="Soy un androide de protocolo, diseñado para guiar a humanos.";
+
+        }
+        else if (inMessage.contains("3")){
+            //inMessage="Nice to meet you!";
+            inMessage="¡Encantado!";
+
         }
         text.setText(inMessage);
         talker.speak(inMessage, TextToSpeech.QUEUE_FLUSH, null);

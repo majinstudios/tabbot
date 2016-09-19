@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothAdapter btAdapter = null;
     private BluetoothSocket btSocket = null;
     private StringBuilder sb = new StringBuilder();
-    private static String address = "00:12:02:10:00:78"; // MAC-address of Bluetooth module
+    private static String address = "00:12:02:10:79:73"; // MAC-address of Bluetooth module
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private static final String TAG = "bluetooth"; //solo para log
     final int RECEIVE_MESSAGE = 1;
